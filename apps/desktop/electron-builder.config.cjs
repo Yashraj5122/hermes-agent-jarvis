@@ -26,7 +26,9 @@ const {
   windowsExecutableName,
   channel,
   msixAppIdWithOrg,
-  token
+  token,
+  userDataDirName,
+  protocol
 } = require('./product-identity.cjs')
 
 // `storeMsix` is optional on the identity type but guaranteed present when
@@ -75,10 +77,10 @@ module.exports = {
   appId,
   productName: displayName,
   executableName: displayName,
-  protocols: [
+  protocols: protocol === null ? [] : [
     {
       name: `${displayName} Protocol`,
-      schemes: ['hermes']
+      schemes: [protocol || 'hermes']
     }
   ],
   // A store build is archived, never served to a feed — prefix its artifact
@@ -105,7 +107,7 @@ module.exports = {
     // Electron bootstrap reads package.productName before main.ts. Keep the
     // shipped stable default, but isolate nonstable userData from first access.
     // A stable-branded channel has no token and keeps stable's userData.
-    ...((channelRequest && token) || appNamePascal !== artifactNamePascal ? { productName: displayName } : {}),
+    ...((channelRequest && token) || userDataDirName || appNamePascal !== artifactNamePascal ? { productName: displayName } : {}),
     desktopName: appId
   },
   directories: {

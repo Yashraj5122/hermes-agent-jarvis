@@ -1,6 +1,6 @@
 // The desktop product identity — THE single source for every name-shaped
 // value a variant owns. HERMES_DESKTOP_VARIANT=light builds "Hermes
-// Light", the remote-only client; everything else is full "Hermes".
+// Light", the remote-only client; jarvis builds the personal Jarvis client.
 //
 // Consumed at build time by electron-builder.config.cjs (packaging
 // identity). electron/product-identity.ts is the typed runtime accessor.
@@ -10,6 +10,7 @@
 
 const variants = {
   '': { display: 'Hermes', kebab: 'hermes', pascal: 'Hermes' },
+  jarvis: { display: 'Jarvis', kebab: 'jarvis', pascal: 'Jarvis' },
   light: {
     display: 'Hermes Light',
     kebab: 'hermes-light',
@@ -23,8 +24,8 @@ const variants = {
 }
 
 const variant = process.env.HERMES_DESKTOP_VARIANT || ''
-if (!['', 'light', 'bundled', 'store'].includes(variant)) {
-  throw new Error(`Unknown HERMES_DESKTOP_VARIANT ${variant}. expected one of (empty), light, bundled, store`)
+if (!['', 'light', 'bundled', 'store', 'jarvis'].includes(variant)) {
+  throw new Error(`Unknown HERMES_DESKTOP_VARIANT ${variant}. expected one of (empty), light, bundled, store, jarvis`)
 }
 
 // 'store' is a Store-submission packaging identity layered on the bundled
@@ -33,6 +34,7 @@ if (!['', 'light', 'bundled', 'store'].includes(variant)) {
 // MSIX package identity. The Store re-signs on submission.
 const store = variant === 'store'
 const light = variant === 'light'
+const jarvis = variant === 'jarvis'
 const name = variants[store ? 'bundled' : (variant || '')]
 
 // The electron-updater feed channel this build PUBLISHES to. A canary
@@ -66,14 +68,16 @@ const identity = {
   store,
   light,
   displayName,
-  appId: `com.nousresearch.${name.kebab}${kebabSuffix}`,
+  appId: `com.${jarvis ? 'yashraj' : 'nousresearch'}.${name.kebab}${kebabSuffix}`,
   // Store and commit builds do not publish a release feed.
-  channel: store || buildCommit ? null : light ? (canary ? 'light-canary' : 'light') : (canary ? 'canary' : 'latest'),
+  channel: jarvis || store || buildCommit ? null : light ? (canary ? 'light-canary' : 'light') : (canary ? 'canary' : 'latest'),
   appNamePascal: `${name.pascal}${pascalSuffix}`,
   artifactNamePascal: name.pascal,
   windowsExecutableName: kebabSuffix ? cliName : displayName,
   cliName,
-  msixAppIdWithOrg: `NousResearch.${name.pascal}${pascalSuffix}`,
+  msixAppIdWithOrg: `${jarvis ? 'Yashraj' : 'NousResearch'}.${name.pascal}${pascalSuffix}`,
+  // Keep the personal client alongside Hermes without taking over its URL handler.
+  ...(jarvis ? { userDataDirName: `${name.pascal}${pascalSuffix}`, protocol: null } : {}),
   ...(store
     ? {
         storeMsix: {

@@ -52,6 +52,40 @@ async function identityForVariant(variant: string | undefined): Promise<ProductI
   return (await import('./product-identity')).PRODUCT_IDENTITY
 }
 
+test('Jarvis owns its desktop state without claiming Hermes updates or protocol', async (): Promise<void> => {
+  const upstream = await identityForVariant(undefined)
+  const identity = await identityForVariant('jarvis')
+  assert.equal(identity.displayName, 'Jarvis')
+  assert.equal(identity.appId, 'com.yashraj.jarvis')
+  assert.notEqual(identity.appId, upstream.appId)
+  assert.equal(identity.channel, null)
+  const runtime = await import('./product-identity')
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jarvis-identity-'))
+  const paths = { appData: root, userData: path.join(root, 'Hermes') }
+  let name = 'Hermes'
+
+  try {
+    assert.equal(runtime.applyDesktopIdentity({
+      getPath: key => paths[key],
+      setPath: (_key, value) => { paths.userData = value },
+      setName: value => { name = value }
+    }, identity), 'Jarvis')
+    assert.equal(paths.userData, path.join(root, 'Jarvis'))
+    if (process.platform !== 'win32') {
+      assert.equal(fs.statSync(paths.userData).mode & 0o777, 0o700)
+    }
+    assert.equal(name, 'Jarvis')
+    delete require.cache[require.resolve('../electron-builder.config.cjs')]
+    const config: PackagingConfiguration = require('../electron-builder.config.cjs')
+    assert.equal(config.productName, 'Jarvis')
+    assert.equal(config.extraMetadata.productName, 'Jarvis')
+    assert.equal(config.publish, null)
+    assert.deepEqual(config.protocols, [])
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('baked runtime identity never evaluates ambient build selectors', async (): Promise<void> => {
   const dir: string = fs.mkdtempSync(path.join(os.tmpdir(), 'baked-identity-'))
 

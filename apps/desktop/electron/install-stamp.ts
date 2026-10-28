@@ -60,6 +60,8 @@ export interface ChannelBuildRequest {
 
 /** Mirrors the build stamp with the PM builder's completed launch contract. */
 export interface InstallStamp {
+  /** Branding stays distinct from the bootstrap runtime payload contract. */
+  desktopVariant?: 'jarvis'
   schemaVersion: number
   commit: string | null
   commitDate: number | null

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process'
-import { cpSync, existsSync, readdirSync } from 'node:fs'
+import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { bundleElectronMain, electronOutputs } from '../../apps/desktop/scripts/bundle-electron-main.mjs'
@@ -58,7 +58,11 @@ export async function buildDesktop({ source, out, icons, stamp, nativeDeps, type
     // stamp says by now: electron-builder copies that live file into the bundle
     // after the receipt is written, and productCurrent must be able to tell that
     // the two disagree (#123308).
-    const { stampClock } = await bundleElectronMain({ source, out: product, stamp })
+    const { stampClock, displayName } = await bundleElectronMain({ source, out: product, stamp })
+    // Titles follow the baked identity even when the renderer came from a different variant.
+    const html = join(product, 'index.html')
+    const title = displayName.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    writeFileSync(html, readFileSync(html, 'utf8').replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`))
     copyNativeTree({ nativeDeps, out: join(product, 'node_modules') })
     const result = checkDistBuilt(product)
     if (!result.ok) throw new Error(result.error)

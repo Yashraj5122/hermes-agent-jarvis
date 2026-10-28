@@ -4,14 +4,14 @@ import { test } from 'vitest'
 
 import { registerDeepLinkProtocol } from './deep-link-protocol'
 
-function run(env: NodeJS.ProcessEnv, defaultApp = true) {
+function run(env: NodeJS.ProcessEnv, defaultApp = true, protocol: string | null = 'hermes') {
   const calls: unknown[][] = []
   const log: string[] = []
   registerDeepLinkProtocol({
     app: { setAsDefaultProtocolClient: (...args: unknown[]) => { calls.push(args);
 
  return true } },
-    protocol: 'hermes',
+    protocol,
     env,
     defaultApp,
     argv: ['/electron', '.'],
@@ -30,4 +30,9 @@ test('the E2E/dev guard leaves the OS hermes:// handler untouched; normal launch
 
   assert.deepEqual(run({}).calls, [['hermes', '/electron', ['/checkout/.']]])
   assert.deepEqual(run({}, false).calls, [['hermes']])
+})
+
+test('a separately branded product can leave OS protocols unregistered', () => {
+  assert.deepEqual(run({}, true, null).calls, [])
+  assert.deepEqual(run({}, false, null).calls, [])
 })

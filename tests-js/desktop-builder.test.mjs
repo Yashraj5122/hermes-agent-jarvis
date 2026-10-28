@@ -89,6 +89,21 @@ function files(root, dir = root) {
   })
 }
 
+test('desktop titles follow the baked identity even when a renderer is reused', async () => {
+  const { buildDesktop } = await import('../scripts/build/desktop.mjs')
+  const input = fixture()
+  put(join(input.source, 'apps/desktop/index.html'), '<html><head><title>Hermes</title></head><body><div id="app"></div><script type="module" src="/src/index.js"></script></body></html>')
+  const stamp = JSON.parse(readFileSync(input.stamp, 'utf8'))
+  put(input.stamp, JSON.stringify({ ...stamp, payload: 'bootstrap', desktopVariant: 'jarvis' }))
+  await buildDesktop(input)
+  const identity = () => JSON.parse(execFileSync(process.execPath, [join(input.out, 'electron-main.mjs')], { encoding: 'utf8' })).identity
+  expect(identity().displayName).toBe('Jarvis')
+  expect(readFileSync(join(input.out, 'index.html'), 'utf8')).toContain('<title>Jarvis</title>')
+  put(input.stamp, JSON.stringify(stamp))
+  expect((await buildDesktop(input)).reusedRenderer).toBe(true)
+  expect(readFileSync(join(input.out, 'index.html'), 'utf8')).toContain(`<title>${identity().displayName}</title>`)
+})
+
 test('desktop compiler consumes explicit immutable inputs, replaces variants, and preserves the last product on failure', async () => {
   const { buildDesktop } = await import('../scripts/build/desktop.mjs')
   const input = fixture()

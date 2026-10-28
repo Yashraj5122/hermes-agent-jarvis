@@ -20,6 +20,14 @@ describe('build stamp → update ownership', () => {
     commands: { hermes: 'bin/hermes' }
   }
 
+  it('Jarvis keeps the local bootstrap contract with external package updates', () => {
+    const stamp = buildStampPayload(provenance, { HERMES_DESKTOP_VARIANT: 'jarvis' }, 'linux')
+    expect(stamp.payload).toBe('bootstrap')
+    expect(stamp.desktopVariant).toBe('jarvis')
+    expect(stamp.updateMechanism).toBe('external')
+    expect(resolveUpdaterMechanism({ platform: 'linux', updateMechanism: stamp.updateMechanism })).toBe('external')
+  })
+
   it.each([
     ['win32', 'bundled', 'app-installer', 'app-installer'],
     ['win32', 'store', 'microsoft-store', 'microsoft-store'],

@@ -251,6 +251,7 @@ export function buildStampPayload(stamp, env = process.env, platform = process.p
   const updateMechanism = {
     '': 'self',
     bootstrap: 'self',
+    jarvis: 'external',
     store: 'microsoft-store',
     bundled: { win32: 'app-installer', darwin: 'electron-updater' }[platform] || 'external',
     light: platform === 'darwin' ? 'electron-updater' : 'external'
@@ -263,7 +264,8 @@ export function buildStampPayload(stamp, env = process.env, platform = process.p
   }
   return {
     ...base,
-    payload: variant === "store" ? "bundled" : variant || "bootstrap",
+    payload: variant === 'jarvis' ? 'bootstrap' : variant === "store" ? "bundled" : variant || "bootstrap",
+    ...(variant === 'jarvis' ? { desktopVariant: 'jarvis' } : {}),
     distribution: "desktop-app",
 
     updateMechanism: commitBuild ? 'external' : updateMechanism,

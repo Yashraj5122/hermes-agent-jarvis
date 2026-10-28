@@ -12,9 +12,9 @@ const repoRoot = resolve(import.meta.dirname, '../../..')
 // Evaluate the one identity module in a fresh process. Its CJS cache and the
 // caller's environment must not carry a previous variant into this artifact.
 function productIdentity(source, stamp) {
-  const variant = stamp.updateMechanism === 'microsoft-store' ? 'store'
-    : stamp.payload === 'bootstrap' ? '' : stamp.payload
-  if (!['', 'bundled', 'light', 'store'].includes(variant)) {
+  const variant = stamp.desktopVariant || (stamp.updateMechanism === 'microsoft-store' ? 'store'
+    : stamp.payload === 'bootstrap' ? '' : stamp.payload)
+  if (!['', 'bundled', 'light', 'store', 'jarvis'].includes(variant)) {
     throw new Error(`Invalid desktop stamp payload: ${stamp.payload}`)
   }
   return execFileSync(process.execPath, ['-e', 'console.log(JSON.stringify(require(process.argv[1])))',
@@ -42,6 +42,7 @@ export async function bundleElectronMain({ source, out, stamp, dev = false }) {
   const envBanner = dev ? '' : environmentDefaultsBanner(process.env.HERMES_BUNDLE_ENV_JSON || '{}')
   const define = {}
   let bakedStamp = null
+  let displayName = null
   if (!dev) {
     if (!stamp) throw new Error('A prepared install stamp is required')
     const raw = readFileSync(stamp, 'utf8')
@@ -52,6 +53,7 @@ export async function bundleElectronMain({ source, out, stamp, dev = false }) {
     define['process.env.HERMES_DESKTOP_IS_PACKAGED'] = JSON.stringify(true)
     define.__HERMES_INSTALL_STAMP__ = raw
     define.__HERMES_PRODUCT_IDENTITY__ = productIdentity(source, metadata)
+    displayName = JSON.parse(define.__HERMES_PRODUCT_IDENTITY__).displayName
   }
   mkdirSync(out, { recursive: true })
   const common = {
@@ -86,7 +88,7 @@ export async function bundleElectronMain({ source, out, stamp, dev = false }) {
     format: 'cjs',
     outfile: join(out, electronOutputs.previewGuestPreload),
   })
-  return { stampClock: bakedStamp }
+  return { stampClock: bakedStamp, displayName }
 }
 
 if (isMain(import.meta.url)) {

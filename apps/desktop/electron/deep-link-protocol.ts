@@ -12,7 +12,7 @@ export interface ProtocolRegistrar {
 
 export interface DeepLinkProtocolOptions {
   app: ProtocolRegistrar
-  protocol: string
+  protocol: string | null
   env: NodeJS.ProcessEnv
   /** `process.defaultApp`: running as `electron <dir>` rather than a packaged binary. */
   defaultApp: boolean
@@ -24,6 +24,10 @@ export interface DeepLinkProtocolOptions {
 
 export function registerDeepLinkProtocol(options: DeepLinkProtocolOptions): void {
   const { app, protocol, env, defaultApp, argv, execPath, resolve, log } = options
+
+  if (protocol === null) {
+    return
+  }
 
   if (env.HERMES_DESKTOP_SKIP_PROTOCOL_REGISTRATION === '1') {
     log(`[deeplink] ${protocol}:// registration skipped (HERMES_DESKTOP_SKIP_PROTOCOL_REGISTRATION)`)

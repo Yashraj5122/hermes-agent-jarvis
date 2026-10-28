@@ -9,6 +9,10 @@ interface ProductIdentity {
   appId: string
   /** app name in pascal case. e.g. "HermesLight" */
   appNamePascal: string
+  /** Explicit desktop state directory for a separately branded client. */
+  readonly userDataDirName?: string
+  /** Null leaves the existing Hermes OS URL handler untouched. */
+  readonly protocol?: string | null
   /** Artifact prefix stays compatible with release archive consumers. */
   artifactNamePascal: string
   /** Windows GUI executable stem; not the payload CLI launcher path. */
