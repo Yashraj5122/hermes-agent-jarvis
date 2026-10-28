@@ -96,6 +96,8 @@ async function acquirePackagingTools({ source, out, cache, target, formats, buil
     sevenZip: copyTool(path.dirname(path.dirname(archiveTool)), path.join(out, 'sevenZip')),
     icons: copyTool(iconTools, path.join(out, 'icons')),
   }
+  // The pinned icon tool is CommonJS even when staged under the ESM desktop package.
+  fs.writeFileSync(path.join(toolsets.icons, 'package.json'), '{"type":"commonjs"}\n')
   let windows = null
   if (process.platform === 'win32') {
     const builder = await load('toolsets/winCodeSign.js')

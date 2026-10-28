@@ -128,6 +128,14 @@ module.exports = {
   ...(process.platform === 'darwin' ? { afterSign: 'scripts/notarize.mjs' } : {}),
   extraResources: [
     {
+      from: '../../LICENSE',
+      to: 'licenses/hermes-agent.LICENSE'
+    },
+    {
+      from: 'src/plugins/hermes-bots/LICENSE',
+      to: 'licenses/hermes-bots.LICENSE'
+    },
+    {
       from: 'build/install-stamp.json',
       to: 'install-stamp.json'
     },
