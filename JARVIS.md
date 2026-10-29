@@ -32,7 +32,7 @@ AppImage installation on a clean target is still a separate acceptance check. Ja
 The prepared desktop builder can create a versioned Linux Jarvis AppImage from a stable release tag, without embedding the Hermes runtime:
 
 ```sh
-python scripts/bundles/desktop.py --tag vX.Y.Z --release-commit <full-commit-sha> --variant jarvis
+python scripts/bundles/desktop.py --tag vX.Y.Z --release-commit <full-commit-sha> --variant jarvis -- --publish never
 ```
 
 Use the stable release process's matching annotated claim (`RELEASE_CLAIM_TAG=rc.N-vX.Y.Z` and its exact object ID in `RELEASE_CLAIM_OBJECT`). Jarvis rejects commit-only, canary, and non-Linux builds. The resulting AppImage is still externally delivered; this command does not publish it or enable in-app updates. Validate replacement and user-data compatibility before distributing an upgrade.
