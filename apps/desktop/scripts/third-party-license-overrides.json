@@ -1,0 +1,67 @@
+{
+  "@esbuild/linux-x64@0.28.2": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/evanw/esbuild/609683d892977362a0f99026cb74b96263d728a9/LICENSE.md",
+    "file": "third-party-licenses/esbuild-LICENSE.md"
+  },
+  "@stitches/react@1.2.8": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/modulz/stitches/c268db3938e2cf6bdbaa3d30f3ce7b67c0492a41/LICENSE.md",
+    "file": "third-party-licenses/stitches-LICENSE.md"
+  },
+  "@react-three/fiber@9.8.1": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/pmndrs/react-three-fiber/53ec672ac4a7189711766b87ece18889abbb32d4/LICENSE",
+    "file": "third-party-licenses/react-three-fiber-LICENSE"
+  },
+  "react-arborist@3.16.0": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/jameskerr/react-arborist/d74c4ec696ba98c1a4e981075f6d60cdff3e290b/LICENSE",
+    "file": "third-party-licenses/react-arborist-LICENSE"
+  },
+  "gsap@3.15.0": {
+    "license": "Standard 'no charge' license: https://gsap.com/standard-license.",
+    "source": "https://gsap.com/standard-license",
+    "file": "third-party-licenses/gsap-standard-license.txt"
+  },
+  "@rolldown/binding-linux-x64-gnu@1.2.13": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/rolldown/rolldown/f7de35f45bcd4cb8e4b6d8d11e74fbfb20b03127/LICENSE",
+    "file": "third-party-licenses/rolldown-LICENSE"
+  },
+  "imurmurhash@0.1.4": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/jensyt/imurmurhash-js/9f40361c7e2835a9b7b8eaa1cbab2a9f94ee22a2/LICENSE",
+    "file": "third-party-licenses/imurmurhash-LICENSE"
+  },
+  "rehype-katex@7.0.1": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/remarkjs/remark-math/88a9497e1ede93b958237c85edbf5651faeca7af/license",
+    "file": "third-party-licenses/rehype-katex-license"
+  },
+  "remark-math@6.0.0": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/remarkjs/remark-math/d5d0660b150810a535bbb07eac6cc96a4510aa24/license",
+    "file": "third-party-licenses/remark-math-license"
+  },
+  "eastasianwidth@0.2.0": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/komagata/eastasianwidth/1cae8a1e507ad6bd5da2e9a01c0f6c90131699bf/MIT-LICENSE.txt",
+    "file": "third-party-licenses/eastasianwidth-MIT-LICENSE.txt"
+  },
+  "react-remove-scroll-bar@2.3.8": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/theKashey/react-remove-scroll-bar/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE",
+    "file": "third-party-licenses/react-remove-scroll-bar-LICENSE"
+  },
+  "tr46@0.0.3": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/Sebmaster/tr46.js/bd303c13dc7ebc716c232f03cb80c79071e7a7f7/LICENSE.md",
+    "file": "third-party-licenses/tr46-LICENSE.md"
+  },
+  "@xterm/addon-serialize@0.14.0": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/xtermjs/xterm.js/f447274f430fd22513f6adbf9862d19524471c04/LICENSE",
+    "file": "third-party-licenses/xterm-LICENSE"
+  }
+}

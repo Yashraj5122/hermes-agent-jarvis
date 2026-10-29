@@ -6,29 +6,35 @@
  * Provenance comes from CI, local git, or an explicit unknown-source stamp.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
-import { resolve, join, relative, posix } from "path"
-import productIdentity from "../product-identity.cjs"
-import { channelBuildRequest } from "../../../scripts/msix-shared.mjs"
-import { validateBundleEnvironment } from "./bundle-env.mjs"
-import { execFileSync } from "child_process"
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { resolve, join, relative, posix } from 'path'
+import productIdentity from '../product-identity.cjs'
+import { channelBuildRequest } from '../../../scripts/msix-shared.mjs'
+import { validateBundleEnvironment } from './bundle-env.mjs'
+import { execFileSync } from 'child_process'
 
-import { isMain } from "./utils.mjs"
+import { isMain } from './utils.mjs'
 
 const STAMP_SCHEMA_VERSION = 1
 
 /** All-zero placeholder used when no real commit can be resolved. */
-export const FALLBACK_COMMIT = "0000000000000000000000000000000000000000"
-export const FALLBACK_BRANCH = "main"
+export const FALLBACK_COMMIT = '0000000000000000000000000000000000000000'
+export const FALLBACK_BRANCH = 'main'
 
-const DESKTOP_ROOT = resolve(import.meta.dirname, "..")
-const REPO_ROOT = resolve(DESKTOP_ROOT, "..", "..")
-const OUT_DIR = join(DESKTOP_ROOT, "build")
-const OUT_FILE = join(OUT_DIR, "install-stamp.json")
+const DESKTOP_ROOT = resolve(import.meta.dirname, '..')
+const REPO_ROOT = resolve(DESKTOP_ROOT, '..', '..')
+const OUT_DIR = join(DESKTOP_ROOT, 'build')
+const OUT_FILE = join(OUT_DIR, 'install-stamp.json')
+const JARVIS_RUNTIME_BOOTSTRAP = JSON.parse(readFileSync(join(DESKTOP_ROOT, 'jarvis-runtime-pin.json'), 'utf8'))
 
 function tryExec(argv, opts) {
   try {
-    return execFileSync(argv[0], argv.slice(1), { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000, ...opts }).trim()
+    return execFileSync(argv[0], argv.slice(1), {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5000,
+      ...opts
+    }).trim()
   } catch {
     return null
   }
@@ -42,27 +48,27 @@ export function fromCI(env = process.env) {
     commit: sha,
     branch: branch,
     dirty: false, // CI builds from a checkout-of-ref by definition
-    source: "ci"
+    source: 'ci'
   }
 }
 
 export function fromLocalGit(repoRoot = REPO_ROOT, execFn = tryExec) {
-  const sha = execFn(["git", "rev-parse", "HEAD"], { cwd: repoRoot })
+  const sha = execFn(['git', 'rev-parse', 'HEAD'], { cwd: repoRoot })
   if (!sha) return null
-  const branch = execFn(["git", "rev-parse", "--abbrev-ref", "HEAD"], { cwd: repoRoot })
+  const branch = execFn(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], { cwd: repoRoot })
   // `git status --porcelain -uno` is empty iff tracked files match HEAD.
   // We exclude untracked files (-uno) intentionally: a developer who's
   // checked out an installer scratch dir alongside the repo shouldn't
   // poison every local build with a [DIRTY] stamp.  We DO care about
   // tracked-but-modified files because those mean the .exe content
   // differs from the commit being pinned.
-  const status = execFn(["git", "status", "--porcelain", "-uno"], { cwd: repoRoot })
+  const status = execFn(['git', 'status', '--porcelain', '-uno'], { cwd: repoRoot })
   const dirty = status !== null && status.length > 0
   return {
     commit: sha,
-    branch: branch === "HEAD" ? null : branch, // detached HEAD -> null
+    branch: branch === 'HEAD' ? null : branch, // detached HEAD -> null
     dirty: dirty,
-    source: "local"
+    source: 'local'
   }
 }
 
@@ -76,7 +82,7 @@ export function fromFallback(branch = FALLBACK_BRANCH) {
     commit: FALLBACK_COMMIT,
     branch: branch || FALLBACK_BRANCH,
     dirty: false,
-    source: "fallback"
+    source: 'fallback'
   }
 }
 
@@ -93,7 +99,8 @@ export function resolveStamp({
   const channelBuild = channelBuildRequest(env)
   if (channelBuild) {
     const local = fromLocalGit(repoRoot, execFn)
-    if (!local || local.commit !== channelBuild.commit || local.dirty) throw new Error('Channel build identity does not match clean checkout HEAD')
+    if (!local || local.commit !== channelBuild.commit || local.dirty)
+      throw new Error('Channel build identity does not match clean checkout HEAD')
     return { ...local, branch: null, source: 'channel-build', baseVersion: channelBuild.sourceVersion, channelBuild }
   }
   if (env.HERMES_BUILD_COMMIT) {
@@ -110,7 +117,7 @@ export function resolveStamp({
 }
 
 export function isFallbackCommit(commit) {
-  return typeof commit === "string" && /^0{7,40}$/.test(commit)
+  return typeof commit === 'string' && /^0{7,40}$/.test(commit)
 }
 
 /** Qualify desktop CLI files before the immutable runtime paths are baked.
@@ -144,7 +151,7 @@ export function stageDesktopLaunchers(root, identity = productIdentity) {
 
 /** Electron and the embedded CLI must see the same immutable provenance. */
 export function writeDesktopStamp(outDir, built) {
-  const json = JSON.stringify(built, null, 2) + "\n"
+  const json = JSON.stringify(built, null, 2) + '\n'
   mkdirSync(outDir, { recursive: true })
   if (built.payload === 'bundled') {
     writeFileSync(join(outDir, 'agent-payload', built.runtime.repoDir, 'install-stamp.json'), json, 'utf8')
@@ -157,60 +164,65 @@ function main() {
   if (!stamp || !stamp.commit) {
     // Should not happen — fromFallback() always provides a commit.
     console.error(
-      "[write-build-stamp] ERROR: could not determine git commit.\n" +
-        "  - $GITHUB_SHA not set\n" +
-        "  - `git rev-parse HEAD` failed at " +
+      '[write-build-stamp] ERROR: could not determine git commit.\n' +
+        '  - $GITHUB_SHA not set\n' +
+        '  - `git rev-parse HEAD` failed at ' +
         REPO_ROOT +
-        "\n" +
-        "Packaged builds require a git ref to pin first-launch install.ps1\n" +
-        "against. Run from a git checkout or set $GITHUB_SHA explicitly."
+        '\n' +
+        'Packaged builds require a git ref to pin first-launch install.ps1\n' +
+        'against. Run from a git checkout or set $GITHUB_SHA explicitly.'
     )
     process.exit(1)
   }
 
   if (isFallbackCommit(stamp.commit)) {
     console.warn(
-      "[write-build-stamp] WARNING: no git commit found (non-git checkout?).\n" +
-        "  Using placeholder commit — the packaged app will fall back to the\n" +
-        "  default branch for first-launch bootstrap.  For production builds,\n" +
-        "  run from a git checkout or set $GITHUB_SHA."
+      '[write-build-stamp] WARNING: no git commit found (non-git checkout?).\n' +
+        '  Using placeholder commit — the packaged app will fall back to the\n' +
+        '  default branch for first-launch bootstrap.  For production builds,\n' +
+        '  run from a git checkout or set $GITHUB_SHA.'
     )
   }
 
   if (stamp.dirty) {
     console.warn(
-      "[write-build-stamp] WARNING: working tree is dirty.\n" +
-        "  Pinning to " +
+      '[write-build-stamp] WARNING: working tree is dirty.\n' +
+        '  Pinning to ' +
         stamp.commit.slice(0, 12) +
-        " but the packaged code may differ from that commit.\n" +
-        "  Commit your changes before publishing this build."
+        ' but the packaged code may differ from that commit.\n' +
+        '  Commit your changes before publishing this build.'
     )
   }
 
   const bundled = ['bundled', 'store'].includes(process.env.HERMES_DESKTOP_VARIANT)
-  const payload = bundled
-    ? stageDesktopLaunchers(join(OUT_DIR, 'agent-payload'))
-    : null
+  const payload = bundled ? stageDesktopLaunchers(join(OUT_DIR, 'agent-payload')) : null
   const built = buildStampPayload(stamp, process.env, process.platform, payload)
   writeDesktopStamp(OUT_DIR, built)
   console.log(
-    "[write-build-stamp] wrote " +
+    '[write-build-stamp] wrote ' +
       relative(REPO_ROOT, OUT_FILE) +
-      " -> " +
+      ' -> ' +
       stamp.commit.slice(0, 12) +
-      (stamp.branch ? " (" + stamp.branch + ")" : "") +
-      (stamp.dirty ? " [DIRTY]" : "") +
-      (stamp.source === "fallback" ? " [FALLBACK]" : "")
+      (stamp.branch ? ' (' + stamp.branch + ')' : '') +
+      (stamp.dirty ? ' [DIRTY]' : '') +
+      (stamp.source === 'fallback' ? ' [FALLBACK]' : '')
   )
 }
 
 /** One artifact schema for source, bundled and Light builds.
  * The PM bundle builder supplies launch paths only for bundled artifacts.
  */
-export function buildStampPayload(stamp, env = process.env, platform = process.platform, payload = null) {
-  const variant = (env.HERMES_DESKTOP_VARIANT || "").trim()
+export function buildStampPayload(
+  stamp,
+  env = process.env,
+  platform = process.platform,
+  payload = null,
+  runtimeBootstrap = JARVIS_RUNTIME_BOOTSTRAP
+) {
+  const variant = (env.HERMES_DESKTOP_VARIANT || '').trim()
   const channelBuild = channelBuildRequest(env)
-  if (channelBuild && (stamp.commit !== channelBuild.commit || stamp.dirty)) throw new Error('Channel build identity does not match stamp')
+  if (channelBuild && (stamp.commit !== channelBuild.commit || stamp.dirty))
+    throw new Error('Channel build identity does not match stamp')
   const commitBuild = env.HERMES_BUILD_COMMIT || null
   if (commitBuild && (!/^[a-f0-9]{40}$/.test(commitBuild) || commitBuild !== stamp.commit)) {
     throw new Error('Commit build identity does not match the stamp commit')
@@ -223,7 +235,9 @@ export function buildStampPayload(stamp, env = process.env, platform = process.p
   // driver can predict the app's resolved Hermes home without reimplementing
   // the banner. Only commit bundles carry one, but the field is harmless when
   // absent elsewhere.
-  const bundleEnv = env.HERMES_BUNDLE_ENV_JSON ? validateBundleEnvironment(JSON.parse(env.HERMES_BUNDLE_ENV_JSON)) : undefined
+  const bundleEnv = env.HERMES_BUNDLE_ENV_JSON
+    ? validateBundleEnvironment(JSON.parse(env.HERMES_BUNDLE_ENV_JSON))
+    : undefined
   const base = {
     schemaVersion: STAMP_SCHEMA_VERSION,
     commit: stamp.commit,
@@ -235,7 +249,7 @@ export function buildStampPayload(stamp, env = process.env, platform = process.p
     baseVersion: channelBuild?.sourceVersion ?? stamp.baseVersion ?? version?.split('-')[0] ?? null,
     displayVersion: channelBuild
       ? `${channelBuild.sourceVersion} (${channelBuild.channel} #${channelBuild.sequence}, ${channelBuild.commit.slice(0, 7)})`
-      : stamp.displayVersion ?? version,
+      : (stamp.displayVersion ?? version),
     distance: stamp.distance ?? null
   }
 
@@ -257,16 +271,18 @@ export function buildStampPayload(stamp, env = process.env, platform = process.p
     light: platform === 'darwin' ? 'electron-updater' : 'external'
   }[variant]
   if (!updateMechanism) throw new Error(`Unknown desktop variant: ${variant}`)
-  if (channelBuild && updateMechanism === 'external') throw new Error('Channel builds require a supported native update owner')
+  if (channelBuild && updateMechanism === 'external')
+    throw new Error('Channel builds require a supported native update owner')
   const bundled = variant === 'bundled' || variant === 'store'
   if (bundled && !payload?.runtime?.commands?.hermes) {
     throw new Error('PM payload has no completed launch contract; stage the bundle before packaging')
   }
   return {
     ...base,
-    payload: variant === 'jarvis' ? 'bootstrap' : variant === "store" ? "bundled" : variant || "bootstrap",
+    payload: variant === 'jarvis' ? 'bootstrap' : variant === 'store' ? 'bundled' : variant || 'bootstrap',
     ...(variant === 'jarvis' ? { desktopVariant: 'jarvis' } : {}),
-    distribution: "desktop-app",
+    ...(variant === 'jarvis' ? { runtimeBootstrap: validateRuntimeBootstrap(runtimeBootstrap) } : {}),
+    distribution: 'desktop-app',
 
     updateMechanism: commitBuild ? 'external' : updateMechanism,
     tag: channelBuild?.receiverCandidate ? channelBuild.releaseTag : env.HERMES_PAYLOAD_TAG || null,
@@ -275,7 +291,31 @@ export function buildStampPayload(stamp, env = process.env, platform = process.p
   }
 }
 
+function validateRuntimeBootstrap(pin) {
+  if (!pin || !/^[a-f0-9]{40}$/.test(pin.commit) || typeof pin.branch !== 'string' || !pin.branch.trim()) {
+    throw new Error('Jarvis builds require a valid pinned Hermes runtime bootstrap revision')
+  }
+  const result = { commit: pin.commit, branch: pin.branch }
+
+  if (pin.repository !== undefined) {
+    let url
+
+    try {
+      url = new URL(pin.repository)
+    } catch {
+      throw new Error('Jarvis runtime repository must be an HTTPS GitHub repository')
+    }
+
+    if (url.protocol !== 'https:' || url.hostname !== 'github.com' || url.username || url.password || url.search || url.hash ||
+        !/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?\/?$/.test(url.pathname)) {
+      throw new Error('Jarvis runtime repository must be an HTTPS GitHub repository')
+    }
+    result.repository = url.toString().replace(/\/$/, '')
+  }
+
+  return result
+}
+
 if (isMain(import.meta.url)) {
   main()
 }
-

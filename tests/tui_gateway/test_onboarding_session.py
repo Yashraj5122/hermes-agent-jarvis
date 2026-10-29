@@ -13,7 +13,7 @@ import pytest
 from agent import onboarding_record
 from agent.onboarding_flow import End, Facts, Shown
 from agent.onboarding_session import carry_onboarding_toolset, onboarding_prelude, onboarding_toolsets
-from agent.onboarding_text import GREETING
+from agent.onboarding_text import GREETING, _GREETINGS, opening_prompt
 from tui_gateway import server, server_requests
 
 FACTS = Facts(os="macos", arch="arm64", machine_kind="Mac", plugins=("blender",))
@@ -134,6 +134,12 @@ def _agent(db, sid="onb"):
                            _gateway_turn_context_notes="")
 
 
+def test_first_run_greeting_uses_jarvis_identity():
+    assert GREETING == _GREETINGS["en"]
+    assert all("Jarvis" in greeting and "Hermes" not in greeting for greeting in _GREETINGS.values())
+    assert "Jarvis desktop app" in opening_prompt(FACTS)
+
+
 def test_the_opening_plays_the_greeting_and_name_card_until_the_name_card_was_shown(root):
     db = server._get_db()
     db.create_session("onb", "desktop")
@@ -149,9 +155,9 @@ def test_the_opening_plays_the_greeting_and_name_card_until_the_name_card_was_sh
 
 
 @pytest.mark.parametrize("locale, opens_with, asks", [
-    ("de", "Hallo, ich bin Hermes.", "Wie darf ich Sie nennen?"),
-    ("zh_TW", "你好，我是 Hermes。我們", "我該怎麼稱呼你？"),
-    ("ja-JP", "こんにちは、Hermes です。", "なんとお呼びすればいいですか？"),
+    ("de", "Hallo, ich bin Jarvis.", "Wie darf ich Sie nennen?"),
+    ("zh_TW", "你好，我是 Jarvis。我們", "我該怎麼稱呼你？"),
+    ("ja-JP", "こんにちは、Jarvis です。", "なんとお呼びすればいいですか？"),
     ("tlh", GREETING, "What should I call you?"),
     (None, GREETING, "What should I call you?"),
 ])

@@ -16,6 +16,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { appIdentity, nativeManifestTemplate, storeManifestTemplate } from '../../../scripts/msix-shared.mjs'
+import { generateThirdPartyNotices } from './generate-third-party-notices.mjs'
 
 
 const require = createRequire(import.meta.url)
@@ -29,6 +30,7 @@ const {
 
 export default async function beforeBuild() {
   stageMsixAssets()
+  stageThirdPartyNotices()
   writeMsixExtensions()
   if (store) stageStoreManifest(path.join(import.meta.dirname, '..'), process.env.HERMES_PAYLOAD_TAG)
   else if (process.env.HERMES_PAYLOAD_TAG) {
@@ -36,6 +38,15 @@ export default async function beforeBuild() {
   }
 
   return false
+}
+
+export function stageThirdPartyNotices() {
+  const root = path.resolve(import.meta.dirname, '../../..')
+  const output = path.join(import.meta.dirname, '../build/licenses/THIRD_PARTY_NOTICES.txt')
+  const result = generateThirdPartyNotices(root, output)
+
+  console.log(`[before-build] staged ${result.entries} third-party dependency notices (${result.missingTexts} without package license text)`)
+  return result
 }
 
 function stageMsixAssets() {

@@ -2,6 +2,7 @@ import { atom } from 'nanostores'
 
 import { translateNow } from '@/i18n'
 import { type HermesOpenTarget, resolveHermesOpenPath } from '@/lib/hermes-open-target'
+import { RENDERER_ANIMATIONS_PAUSED_ATTRIBUTE } from '@/lib/renderer-loop-pause'
 import { persistString, storedString } from '@/lib/storage'
 
 import { recordFeatureToggle } from './desktop-metrics'
@@ -134,7 +135,7 @@ function isBackgrounded(): boolean {
     return false
   }
 
-  if (document.hidden) {
+  if (document.hidden || document.documentElement.hasAttribute(RENDERER_ANIMATIONS_PAUSED_ATTRIBUTE)) {
     return true
   }
 

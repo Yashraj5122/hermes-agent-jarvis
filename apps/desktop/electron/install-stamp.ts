@@ -29,6 +29,13 @@ export interface PayloadRuntime {
   commands: Record<string, string>
 }
 
+/** Hermes source revision and optional repository used for a branded client's first install. */
+export interface RuntimeBootstrapPin {
+  commit: string
+  branch: string
+  repository?: string
+}
+
 /** Immutable admitted channel build. Native names come from R2, never the slug. */
 export interface ChannelBuildRequest {
   schema: 1
@@ -62,6 +69,8 @@ export interface ChannelBuildRequest {
 export interface InstallStamp {
   /** Branding stays distinct from the bootstrap runtime payload contract. */
   desktopVariant?: 'jarvis'
+  /** Runtime install source can differ from this desktop source commit. */
+  runtimeBootstrap?: RuntimeBootstrapPin
   schemaVersion: number
   commit: string | null
   commitDate: number | null
@@ -103,6 +112,8 @@ declare const __HERMES_INSTALL_STAMP__: InstallStamp
 
 /** The baked request is immutable as well as its containing artifact stamp. */
 function freezeStamp(stamp: InstallStamp): Readonly<InstallStamp> {
+  if (stamp.runtimeBootstrap) {Object.freeze(stamp.runtimeBootstrap)}
+
   if (stamp.channelBuild) {
     Object.freeze(stamp.channelBuild.identity)
     Object.freeze(stamp.channelBuild.bundleEnv)

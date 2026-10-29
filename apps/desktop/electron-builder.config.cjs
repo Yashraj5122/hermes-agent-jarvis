@@ -136,6 +136,10 @@ module.exports = {
       to: 'licenses/hermes-bots.LICENSE'
     },
     {
+      from: 'build/licenses/THIRD_PARTY_NOTICES.txt',
+      to: 'licenses/THIRD_PARTY_NOTICES.txt'
+    },
+    {
       from: 'build/install-stamp.json',
       to: 'install-stamp.json'
     },

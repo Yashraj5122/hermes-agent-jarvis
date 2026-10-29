@@ -12,16 +12,18 @@ import {
 } from './write-build-stamp.mjs'
 
 test('fromCI reads GITHUB_SHA / GITHUB_REF_NAME', () => {
-  assert.deepEqual(
-    fromCI({ GITHUB_SHA: 'a'.repeat(40), GITHUB_REF_NAME: 'release' }),
-    { commit: 'a'.repeat(40), branch: 'release', dirty: false, source: 'ci' }
-  )
+  assert.deepEqual(fromCI({ GITHUB_SHA: 'a'.repeat(40), GITHUB_REF_NAME: 'release' }), {
+    commit: 'a'.repeat(40),
+    branch: 'release',
+    dirty: false,
+    source: 'ci'
+  })
   assert.equal(fromCI({}), null)
 })
 
 test('fromLocalGit reads HEAD + branch + dirty status', () => {
   const calls = []
-  const execFn = (argv) => {
+  const execFn = argv => {
     const cmd = argv.join(' ')
     calls.push(cmd)
     if (cmd === 'git rev-parse HEAD') return 'b'.repeat(40)
@@ -59,7 +61,7 @@ test('resolveStamp prefers CI over local git over fallback', () => {
 
   const local = resolveStamp({
     env: {},
-    execFn: (argv) => {
+    execFn: argv => {
       const cmd = argv.join(' ')
       if (cmd === 'git rev-parse HEAD') return 'd'.repeat(40)
       if (cmd === 'git rev-parse --abbrev-ref HEAD') return 'main'
@@ -95,15 +97,21 @@ const baseStamp = {
 }
 
 const runtime = {
-  repoDir: 'app', toolsDir: 'tools', storePython: 'tools/python/bin/python3',
-  sitePackages: 'venv/lib/python3.14/site-packages', commands: { hermes: 'bin/hermes' }
+  repoDir: 'app',
+  toolsDir: 'tools',
+  storePython: 'tools/python/bin/python3',
+  sitePackages: 'venv/lib/python3.14/site-packages',
+  commands: { hermes: 'bin/hermes' }
 }
 
 test('bundled stamp carries the builder contract and refuses an unstaged payload', () => {
   const env = { HERMES_DESKTOP_VARIANT: 'bundled' }
   assert.throws(() => buildStampPayload(baseStamp, env, 'darwin'), /payload/)
   assert.deepEqual(buildStampPayload(baseStamp, env, 'darwin', { runtime }).runtime, runtime)
-  assert.equal(buildStampPayload(baseStamp, { HERMES_DESKTOP_VARIANT: 'light' }, 'darwin', { runtime }).runtime, undefined)
+  assert.equal(
+    buildStampPayload(baseStamp, { HERMES_DESKTOP_VARIANT: 'light' }, 'darwin', { runtime }).runtime,
+    undefined
+  )
 })
 
 test('source builds declare the same artifact schema, without a payload', () => {
@@ -115,10 +123,49 @@ test('source builds declare the same artifact schema, without a payload', () => 
   assert.equal(stamp.commit, baseStamp.commit)
 })
 
+test('Jarvis stamp separates its desktop commit from the reachable Hermes bootstrap commit', () => {
+  const runtimeBootstrap = {
+    commit: '74195d3680784111a58ce6643e16c7bd082a40a7',
+    branch: 'main',
+    repository: 'https://github.com/Yashraj5122/hermes-agent-jarvis.git'
+  }
+  const stamp = buildStampPayload(baseStamp, { HERMES_DESKTOP_VARIANT: 'jarvis' }, 'linux', null, runtimeBootstrap)
+
+  assert.equal(stamp.commit, baseStamp.commit)
+  assert.deepEqual(stamp.runtimeBootstrap, runtimeBootstrap)
+})
+
+test('Jarvis stamp rejects a runtime repository outside HTTPS GitHub', () => {
+  assert.throws(
+    () => buildStampPayload(baseStamp, { HERMES_DESKTOP_VARIANT: 'jarvis' }, 'linux', null, {
+      commit: '74195d3680784111a58ce6643e16c7bd082a40a7',
+      branch: 'main',
+      repository: 'https://example.com/owner/repo.git'
+    }),
+    /HTTPS GitHub repository/
+  )
+})
+
+test('Jarvis stamp rejects URL query secrets without including them in errors', () => {
+  assert.throws(
+    () => buildStampPayload(baseStamp, { HERMES_DESKTOP_VARIANT: 'jarvis' }, 'linux', null, {
+      commit: '74195d3680784111a58ce6643e16c7bd082a40a7',
+      branch: 'main',
+      repository: 'https://github.com/Yashraj5122/hermes-agent-jarvis.git?token=secret-value'
+    }),
+    (error) => /HTTPS GitHub repository/.test(error.message) && !error.message.includes('secret-value')
+  )
+})
+
 test('buildStampPayload keeps schemaVersion + provenance in the staged shape', () => {
-  const payload = buildStampPayload(baseStamp, {
-    HERMES_DESKTOP_VARIANT: 'bundled'
-  }, 'win32', { runtime })
+  const payload = buildStampPayload(
+    baseStamp,
+    {
+      HERMES_DESKTOP_VARIANT: 'bundled'
+    },
+    'win32',
+    { runtime }
+  )
   assert.equal(payload.schemaVersion, 1)
   assert.equal(payload.commit, baseStamp.commit)
   assert.equal(payload.source, 'ci')
@@ -134,8 +181,13 @@ test('commit builds retain exact provenance without entering an update channel',
     assert.equal(payload.branch, null)
     assert.equal(payload.tag, null)
     assert.equal(payload.updateMechanism, 'external')
-    assert.throws(() => buildStampPayload(baseStamp, { ...env, HERMES_BUILD_COMMIT: 'a'.repeat(40) }, platform, { runtime }), /commit/i)
-    assert.throws(() => buildStampPayload(baseStamp, { ...env, HERMES_PAYLOAD_TAG: 'v1.2.3' }, platform, { runtime }), /tag/i)
+    assert.throws(
+      () => buildStampPayload(baseStamp, { ...env, HERMES_BUILD_COMMIT: 'a'.repeat(40) }, platform, { runtime }),
+      /commit/i
+    )
+    assert.throws(
+      () => buildStampPayload(baseStamp, { ...env, HERMES_PAYLOAD_TAG: 'v1.2.3' }, platform, { runtime }),
+      /tag/i
+    )
   }
 })
-

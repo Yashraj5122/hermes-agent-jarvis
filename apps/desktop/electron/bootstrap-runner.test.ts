@@ -10,7 +10,9 @@ import {
   buildPosixPinArgs,
   cachedScriptPath,
   cleanInstallerLogLine,
+  githubRawContentUrl,
   hasExistingGitCheckout,
+  installerEnv,
   installRefForStamp,
   isPinnedCommit,
   resolveInstallScript,
@@ -75,6 +77,122 @@ test('fresh bootstrap args include the packaged commit pin', () => {
     }),
     ['--dir', '/tmp/hermes-agent', '--hermes-home', '/tmp/hermes', '--branch', 'main', '--commit', installStamp.commit]
   )
+})
+
+test('Jarvis bootstrap fetches and installs its separately pinned upstream runtime', () => {
+  const stamp = {
+    commit: 'c'.repeat(40),
+    branch: 'jarvis/setup',
+    runtimeBootstrap: { commit: '74195d3680784111a58ce6643e16c7bd082a40a7', branch: 'main' }
+  }
+
+  assert.deepEqual(installRefForStamp(stamp), {
+    ref: stamp.runtimeBootstrap.commit,
+    cacheKey: stamp.runtimeBootstrap.commit,
+    pinned: true
+  })
+  assert.deepEqual(buildPosixPinArgs({ installStamp: stamp, activeRoot: '/tmp/hermes', hermesHome: '/tmp/home' }), [
+    '--dir',
+    '/tmp/hermes',
+    '--hermes-home',
+    '/tmp/home',
+    '--branch',
+    'main',
+    '--commit',
+    stamp.runtimeBootstrap.commit
+  ])
+  assert.deepEqual(buildPinArgs(stamp), ['-Commit', stamp.runtimeBootstrap.commit, '-Branch', 'main'])
+  assert.deepEqual(
+    buildPosixPinArgs({ installStamp: stamp, activeRoot: '/tmp/hermes', hermesHome: '/tmp/home', pinCommit: false }),
+    ['--dir', '/tmp/hermes', '--hermes-home', '/tmp/home', '--branch', 'main']
+  )
+  assert.deepEqual(buildPinArgs(stamp, { pinCommit: false }), ['-Branch', 'main'])
+})
+
+test('Jarvis bootstrap fetches its installer from the pinned runtime repository', async () => {
+  const home = mkTmpHome()
+  const repository = 'https://github.com/Yashraj5122/hermes-agent-jarvis.git'
+  const downloaded = []
+
+  try {
+    await resolveInstallScript({
+      installStamp: {
+        commit: 'c'.repeat(40),
+        branch: 'jarvis/setup',
+        runtimeBootstrap: {
+          commit: 'd'.repeat(40),
+          branch: 'jarvis/setup',
+          repository
+        }
+      },
+      sourceRepoRoot: null,
+      hermesHome: home,
+      emit: () => {},
+      _download: async (...args) => downloaded.push(args)
+    })
+
+    assert.equal(downloaded[0][0], 'd'.repeat(40))
+    assert.equal(downloaded[0][2], repository)
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('runtime repository generates a GitHub raw URL and is forwarded to the installer', () => {
+  const repository = 'https://github.com/Yashraj5122/hermes-agent-jarvis.git'
+  const originalRepository = process.env.HERMES_REPO_URL
+
+  try {
+    delete process.env.HERMES_REPO_URL
+    assert.equal(
+      githubRawContentUrl(repository, 'a'.repeat(40), 'scripts/install.sh'),
+      `https://raw.githubusercontent.com/Yashraj5122/hermes-agent-jarvis/${'a'.repeat(40)}/scripts/install.sh`
+    )
+    assert.equal(installerEnv('/tmp/jarvis-home', repository).HERMES_REPO_URL, repository)
+    assert.throws(() => githubRawContentUrl('http://example.com/owner/repo', 'main', 'scripts/install.sh'))
+  } finally {
+    if (originalRepository === undefined) {delete process.env.HERMES_REPO_URL}
+    else {process.env.HERMES_REPO_URL = originalRepository}
+  }
+})
+
+test('runtime repository rejects credential-like URL components without echoing them', () => {
+  for (const repository of [
+    'https://github.com/Yashraj5122/hermes-agent-jarvis.git?token=secret-value',
+    'https://github.com/Yashraj5122/hermes-agent-jarvis.git#secret-value',
+    'https://user:secret-value@github.com/Yashraj5122/hermes-agent-jarvis.git'
+  ]) {
+    assert.throws(
+      () => githubRawContentUrl(repository, 'a'.repeat(40), 'scripts/install.sh'),
+      (error: Error) => !error.message.includes('secret-value') && /HTTPS GitHub repository/.test(error.message)
+    )
+  }
+})
+
+test('bootstrap does not log an unsafe environment repository URL', async () => {
+  const home = mkTmpHome()
+  const originalRepository = process.env.HERMES_REPO_URL
+  const events = []
+
+  try {
+    process.env.HERMES_REPO_URL = 'https://github.com/Yashraj5122/hermes-agent-jarvis.git?token=secret-value'
+    await assert.rejects(
+      resolveInstallScript({
+        installStamp: { commit: 'c'.repeat(40), branch: 'main' },
+        sourceRepoRoot: null,
+        hermesHome: home,
+        emit: event => events.push(event.line || ''),
+        _download: async (ref, _path, repository) => githubRawContentUrl(repository, ref, 'scripts/install.sh')
+      }),
+      /HTTPS GitHub repository/
+    )
+    assert.doesNotMatch(events.join('\n'), /secret-value/)
+  } finally {
+    if (originalRepository === undefined) {delete process.env.HERMES_REPO_URL}
+    else {process.env.HERMES_REPO_URL = originalRepository}
+
+    fs.rmSync(home, { recursive: true, force: true })
+  }
 })
 
 test('existing-checkout bootstrap args keep branch but skip the packaged commit pin', () => {
@@ -148,6 +266,20 @@ test('resolveMarkerPinnedCommit prefers installed checkout HEAD over the package
       resolveHead: () => null
     }),
     null
+  )
+})
+
+test('resolveMarkerPinnedCommit uses the runtime pin when no checkout head is available', () => {
+  const runtimeCommit = '74195d3680784111a58ce6643e16c7bd082a40a7'
+  assert.equal(
+    resolveMarkerPinnedCommit(
+      { commit: 'c'.repeat(40), runtimeBootstrap: { commit: runtimeCommit, branch: 'main' } },
+      null,
+      {
+        resolveHead: () => null
+      }
+    ),
+    runtimeCommit
   )
 })
 

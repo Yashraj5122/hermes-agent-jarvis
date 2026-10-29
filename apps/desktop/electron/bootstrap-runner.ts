@@ -49,6 +49,32 @@ const IS_WINDOWS = process.platform === 'win32'
 const STAMP_COMMIT_RE = /^[0-9a-f]{7,40}$/i
 const FALLBACK_COMMIT_RE = /^0{7,40}$/
 const FALLBACK_BRANCH = 'main'
+const UPSTREAM_REPOSITORY = 'https://github.com/NousResearch/hermes-agent.git'
+
+function validateGithubRepository(repository: string): string {
+  let url: URL
+
+  try {
+    url = new URL(repository)
+  } catch {
+    throw new Error('Hermes runtime repository must be an HTTPS GitHub repository')
+  }
+
+  const match = url.pathname.match(/^\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/)
+
+  if (url.protocol !== 'https:' || url.hostname !== 'github.com' || url.username || url.password || url.search || url.hash || !match) {
+    throw new Error('Hermes runtime repository must be an HTTPS GitHub repository')
+  }
+
+  return url.toString().replace(/\/$/, '')
+}
+
+function githubRawContentUrl(repository: string, ref: string, file: string): string {
+  const validated = new URL(validateGithubRepository(repository))
+  const match = validated.pathname.match(/^\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/)
+
+  return `https://raw.githubusercontent.com/${match[1]}/${match[2]}/${encodeURIComponent(ref)}/${file}`
+}
 
 function isPinnedCommit(commit) {
   return typeof commit === 'string' && STAMP_COMMIT_RE.test(commit) && !FALLBACK_COMMIT_RE.test(commit)
@@ -116,7 +142,14 @@ function readExistingPinnedCommit(activeRoot: string | null | undefined): string
  * (all-zero) are not real pins and never win.
  */
 function resolveMarkerPinnedCommit(
-  installStamp: { commit?: string; branch?: string | null } | null | undefined,
+  installStamp:
+    | {
+        commit?: string
+        branch?: string | null
+        runtimeBootstrap?: { commit?: string; branch?: string | null }
+      }
+    | null
+    | undefined,
   activeRoot: string | null | undefined,
   opts: { resolveHead?: ResolveHeadFn } = {}
 ): string | null {
@@ -128,6 +161,10 @@ function resolveMarkerPinnedCommit(
     return head
   }
 
+  if (installStamp?.runtimeBootstrap && isPinnedCommit(installStamp.runtimeBootstrap.commit)) {
+    return installStamp.runtimeBootstrap.commit
+  }
+
   if (installStamp && isPinnedCommit(installStamp.commit)) {
     return installStamp.commit
   }
@@ -137,12 +174,32 @@ function resolveMarkerPinnedCommit(
 
 /**
  * Map an install stamp to the same source identity the installer stages use.
- * Fresh installs use the packaged immutable SHA. Existing checkouts
- * intentionally ignore that old app pin and follow the branch, so the script
- * must follow the branch too or old installer code can drive a newer tree.
+ * Fresh Jarvis installs use their explicit upstream runtime pin; other fresh
+ * installs use the packaged immutable SHA. Existing checkouts follow the
+ * configured runtime branch so old installer code cannot drive a newer tree.
  * Non-git fallback stamps also follow the branch (#50823).
  */
 function installRefForStamp(installStamp, { pinCommit = true } = {}) {
+  const runtimeBootstrap = installStamp?.runtimeBootstrap
+
+  if (pinCommit && runtimeBootstrap && isPinnedCommit(runtimeBootstrap.commit)) {
+    return {
+      ref: runtimeBootstrap.commit,
+      cacheKey: runtimeBootstrap.commit,
+      pinned: true
+    }
+  }
+
+  if (runtimeBootstrap && typeof runtimeBootstrap.branch === 'string' && runtimeBootstrap.branch.trim()) {
+    const ref = runtimeBootstrap.branch
+
+    return {
+      ref,
+      cacheKey: `branch-${String(ref).replace(/[^0-9A-Za-z._-]/g, '_')}`,
+      pinned: false
+    }
+  }
+
   if (pinCommit && installStamp && isPinnedCommit(installStamp.commit)) {
     return {
       ref: installStamp.commit,
@@ -224,12 +281,12 @@ function cachedScriptPath(hermesHome, cacheKey) {
   return path.join(bootstrapCacheDir(hermesHome), `install-${cacheKey}.${process.platform === 'win32' ? 'ps1' : 'sh'}`)
 }
 
-function downloadInstallScript(ref, destPath) {
+function downloadInstallScript(ref, destPath, repository = UPSTREAM_REPOSITORY) {
   // Fetch from GitHub raw at the install ref: the packaged SHA for a fresh
   // install, the branch for an existing checkout or a non-git fallback stamp
   // (never the all-zero placeholder, which is not a real GitHub commit).
   const scriptName = installScriptName()
-  const url = `https://raw.githubusercontent.com/NousResearch/hermes-agent/${ref}/scripts/${scriptName}`
+  const url = githubRawContentUrl(repository, ref, `scripts/${scriptName}`)
 
   return new Promise((resolve, reject) => {
     fs.mkdirSync(path.dirname(destPath), { recursive: true })
@@ -344,17 +401,21 @@ async function resolveInstallScript({
   const cached = cachedScriptPath(hermesHome, installRef.cacheKey)
   const resolvedCommit = installRef.pinned ? installRef.ref : null
 
+  const repository = validateGithubRepository(
+    installStamp?.runtimeBootstrap?.repository || process.env.HERMES_REPO_URL || UPSTREAM_REPOSITORY
+  )
+
   // The cache is only this run's -File target, never a source of truth.
   // Refreshing also makes old Desktop builds pick up installer fixes instead
   // of repeatedly executing bytes cached before those fixes existed.
   emit({
     type: 'log',
     line:
-      `[bootstrap] fetching ${installScriptName()} for ${installRef.ref.slice(0, 12)} from GitHub` +
+      `[bootstrap] fetching ${installScriptName()} for ${installRef.ref.slice(0, 12)} from ${repository}` +
       (installRef.pinned ? '' : ' (unpinned branch)')
   })
 
-  await _download(installRef.ref, cached)
+  await _download(installRef.ref, cached, repository)
   emit({ type: 'log', line: `[bootstrap] saved to ${cached}` })
 
   return { path: cached, source: 'download', commit: resolvedCommit, kind: installScriptKind() }
@@ -429,8 +490,10 @@ function cleanInstallerLogLine(raw: string): string {
 // The installer drives Hermes's own toolchain (install.sh takes a uv from PATH
 // when it is new enough), so store dirs already on PATH stay ahead of the
 // login-shell entries shell-path.ts merged in front of them.
-function installerEnv(hermesHome) {
-  const env = { ...process.env, HERMES_HOME: hermesHome || process.env.HERMES_HOME || '' }
+function installerEnv(hermesHome, repository) {
+  const env: NodeJS.ProcessEnv = { ...process.env, HERMES_HOME: hermesHome || process.env.HERMES_HOME || '' }
+
+  if (repository) {env.HERMES_REPO_URL = repository}
   const key = pathEnvKey(env)
 
   env[key] = storeFirstPath(env[key] || '', { currentEnv: env })
@@ -438,7 +501,7 @@ function installerEnv(hermesHome) {
   return env
 }
 
-function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, hermesHome }: any = {}) {
+function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, hermesHome, repository }: any = {}) {
   return new Promise<any>((resolve, reject) => {
     const ps = process.platform === 'win32' ? resolveWindowsPowerShell() : 'pwsh'
     const fullArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]
@@ -450,7 +513,7 @@ function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, herme
         stdio: ['ignore', 'pipe', 'pipe'],
         // Pass HERMES_HOME through so install.ps1 respects the caller's
         // choice rather than re-computing the default.
-        env: installerEnv(hermesHome)
+        env: installerEnv(hermesHome, repository)
       })
     )
 
@@ -542,11 +605,11 @@ function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, herme
   })
 }
 
-function spawnBash(scriptPath, args, { emit, stageName, abortSignal, hermesHome }: any = {}) {
+function spawnBash(scriptPath, args, { emit, stageName, abortSignal, hermesHome, repository }: any = {}) {
   return new Promise<any>((resolve, reject) => {
     const child = spawn('bash', [scriptPath, ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: installerEnv(hermesHome)
+      env: installerEnv(hermesHome, repository)
     })
 
     let stdout = ''
@@ -639,20 +702,24 @@ function spawnBash(scriptPath, args, { emit, stageName, abortSignal, hermesHome 
 // Manifest + stage dispatch
 // ---------------------------------------------------------------------------
 
-// Build the installer branch/pin args from the install stamp. The commit pin
+// Build the installer branch/pin args from the install stamp. The runtime
+// commit pin (when present) is fresh-install only. The commit pin
 // is fresh-install only: once a managed checkout already exists, bootstrap is
 // a repair/update path and must not let an old packaged app detach the checkout
 // back to the commit baked into that app. All-zero fallback stamps are never
 // passed as -Commit/--commit — only the branch is used (#50823 / #50864 review).
 function buildPinArgs(installStamp, { pinCommit = true } = {}) {
   const args = []
+  const installRef = installRefForStamp(installStamp, { pinCommit })
 
-  if (pinCommit && installStamp && isPinnedCommit(installStamp.commit)) {
-    args.push('-Commit', installStamp.commit)
+  if (installRef?.pinned) {
+    args.push('-Commit', installRef.ref)
   }
 
-  if (installStamp && installStamp.branch) {
-    args.push('-Branch', installStamp.branch)
+  const branch = installStamp?.runtimeBootstrap?.branch || installStamp?.branch
+
+  if (branch) {
+    args.push('-Branch', branch)
   }
 
   return args
@@ -660,13 +727,16 @@ function buildPinArgs(installStamp, { pinCommit = true } = {}) {
 
 function buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit = true }) {
   const args = ['--dir', activeRoot, '--hermes-home', hermesHome]
+  const installRef = installRefForStamp(installStamp, { pinCommit })
 
-  if (installStamp && installStamp.branch) {
-    args.push('--branch', installStamp.branch)
+  const branch = installStamp?.runtimeBootstrap?.branch || installStamp?.branch
+
+  if (branch) {
+    args.push('--branch', branch)
   }
 
-  if (pinCommit && installStamp && isPinnedCommit(installStamp.commit)) {
-    args.push('--commit', installStamp.commit)
+  if (installRef?.pinned) {
+    args.push('--commit', installRef.ref)
   }
 
   return args
@@ -693,7 +763,8 @@ async function fetchManifest({
     emit,
     stageName: '__manifest__',
     abortSignal,
-    hermesHome
+    hermesHome,
+    repository: installStamp?.runtimeBootstrap?.repository
   })
 
   if (result.code !== 0) {
@@ -779,7 +850,8 @@ async function runStage({
     emit,
     stageName: stage.name,
     abortSignal,
-    hermesHome
+    hermesHome,
+    repository: installStamp?.runtimeBootstrap?.repository
   })
 
   const durationMs = Date.now() - startedAt
@@ -852,6 +924,22 @@ function openRunLog(logRoot) {
 // ---------------------------------------------------------------------------
 // Public entrypoint
 // ---------------------------------------------------------------------------
+
+function logMarkerPinResolution(emit, installStamp, pinnedCommit) {
+  if (!pinnedCommit) {
+    emit({
+      type: 'log',
+      line:
+        '[bootstrap] WARNING: could not resolve a real pinnedCommit for the ' +
+        'bootstrap-complete marker; subsequent launches may re-run bootstrap'
+    })
+  } else if (installStamp && !isPinnedCommit(installStamp.commit)) {
+    emit({
+      type: 'log',
+      line: `[bootstrap] fallback stamp resolved marker pin to ${pinnedCommit.slice(0, 12)} from checkout`
+    })
+  }
+}
 
 async function runBootstrap(opts) {
   const {
@@ -988,23 +1076,11 @@ async function runBootstrap(opts) {
       resolveHead: root => resolveCheckoutHead(root, { gitBinary })
     })
 
-    if (!pinnedCommit) {
-      emit({
-        type: 'log',
-        line:
-          '[bootstrap] WARNING: could not resolve a real pinnedCommit for the ' +
-          'bootstrap-complete marker; subsequent launches may re-run bootstrap'
-      })
-    } else if (installStamp && !isPinnedCommit(installStamp.commit)) {
-      emit({
-        type: 'log',
-        line: `[bootstrap] fallback stamp resolved marker pin to ${pinnedCommit.slice(0, 12)} from checkout`
-      })
-    }
+    logMarkerPinResolution(emit, installStamp, pinnedCommit)
 
     const markerPayload = {
       pinnedCommit,
-      pinnedBranch: installStamp ? installStamp.branch : null
+      pinnedBranch: installStamp ? installStamp.runtimeBootstrap?.branch || installStamp.branch : null
     }
 
     const marker = typeof writeMarker === 'function' ? writeMarker(markerPayload) : markerPayload
@@ -1035,7 +1111,9 @@ export {
   buildPosixPinArgs,
   cachedScriptPath,
   cleanInstallerLogLine,
+  githubRawContentUrl,
   hasExistingGitCheckout,
+  installerEnv,
   installRefForStamp,
   isPinnedCommit,
   // Exposed for testability

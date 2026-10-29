@@ -59,6 +59,7 @@ beforeEach(() => {
 
 afterEach(() => {
   clearPluginNotifyHandlers()
+  document.documentElement.removeAttribute('data-renderer-animations-paused')
 
   if (initialHermesDesktop) {
     desktopWindow.hermesDesktop = initialHermesDesktop
@@ -190,6 +191,15 @@ describe('dispatchPluginNativeNotification', () => {
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ body: 'New match', kind: 'plugin', tag: 'index-network', title: 'Opportunity' })
     )
+  })
+
+  it('fires when Electron minimizes the window even if Chromium retains renderer focus', () => {
+    setWindowState({ focused: true, hidden: false })
+    document.documentElement.setAttribute('data-renderer-animations-paused', '')
+
+    dispatchPluginNativeNotification('minimized-plugin', { title: 'Opportunity' })
+
+    expect(notify).toHaveBeenCalledTimes(1)
   })
 
   it('suppresses while the window is focused (the in-app toast covers foreground)', () => {
