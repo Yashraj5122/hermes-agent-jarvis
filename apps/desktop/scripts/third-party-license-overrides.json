@@ -1,38 +1,78 @@
 {
+  "@audiowave/core@0.3.1": {
+    "license": "MIT",
+    "source": "SPDX MIT terms: https://spdx.org/licenses/MIT.txt; attribution from package author metadata and the exact 0.3.1 source tag at https://github.com/teomyth/audiowave/tree/677823284c7fc9f0baf9e62a6d912192a7eb15f9; npm archive https://registry.npmjs.org/@audiowave/core/-/core-0.3.1.tgz",
+    "file": "third-party-licenses/audiowave-core-MIT.txt"
+  },
+  "@audiowave/react@0.6.2": {
+    "license": "MIT",
+    "source": "SPDX MIT terms: https://spdx.org/licenses/MIT.txt; attribution from the exact 0.6.2 package metadata and source tag at https://github.com/teomyth/audiowave/tree/677823284c7fc9f0baf9e62a6d912192a7eb15f9; npm archive https://registry.npmjs.org/@audiowave/react/-/react-0.6.2.tgz",
+    "file": "third-party-licenses/audiowave-react-MIT.txt"
+  },
   "@esbuild/linux-x64@0.28.2": {
     "license": "MIT",
     "source": "https://raw.githubusercontent.com/evanw/esbuild/609683d892977362a0f99026cb74b96263d728a9/LICENSE.md",
     "file": "third-party-licenses/esbuild-LICENSE.md"
   },
-  "@stitches/react@1.2.8": {
+  "@nous-research/ui@0.19.1": {
     "license": "MIT",
-    "source": "https://raw.githubusercontent.com/modulz/stitches/c268db3938e2cf6bdbaa3d30f3ce7b67c0492a41/LICENSE.md",
-    "file": "third-party-licenses/stitches-LICENSE.md"
+    "source": "SPDX MIT terms: https://spdx.org/licenses/MIT.txt; package archive https://registry.npmjs.org/@nous-research/ui/-/ui-0.19.1.tgz; attribution matches the parent Hermes license at https://raw.githubusercontent.com/NousResearch/hermes-agent/74195d3680784111a58ce6643e16c7bd082a40a7/LICENSE",
+    "file": "third-party-licenses/nous-research-ui-MIT.txt"
+  },
+  "@npmcli/agent@2.2.2": {
+    "license": "ISC",
+    "source": "SPDX ISC terms: https://spdx.github.io/license-list-data/ISC.html; attribution from the exact v2.2.2 source tag https://github.com/npm/agent/tree/47b9043b041c5ab982810fe16ea1c16e9ad9024e; npm archive https://registry.npmjs.org/@npmcli/agent/-/agent-2.2.2.tgz",
+    "file": "third-party-licenses/npmcli-agent-ISC.txt"
   },
   "@react-three/fiber@9.8.1": {
     "license": "MIT",
     "source": "https://raw.githubusercontent.com/pmndrs/react-three-fiber/53ec672ac4a7189711766b87ece18889abbb32d4/LICENSE",
     "file": "third-party-licenses/react-three-fiber-LICENSE"
   },
-  "react-arborist@3.16.0": {
+  "@rolldown/binding-linux-x64-gnu@1.2.13": {
     "license": "MIT",
-    "source": "https://raw.githubusercontent.com/jameskerr/react-arborist/d74c4ec696ba98c1a4e981075f6d60cdff3e290b/LICENSE",
-    "file": "third-party-licenses/react-arborist-LICENSE"
+    "source": "https://raw.githubusercontent.com/rolldown/rolldown/f7de35f45bcd4cb8e4b6d8d11e74fbfb20b03127/LICENSE",
+    "file": "third-party-licenses/rolldown-LICENSE"
+  },
+  "@stitches/react@1.2.8": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/modulz/stitches/c268db3938e2cf6bdbaa3d30f3ce7b67c0492a41/LICENSE.md",
+    "file": "third-party-licenses/stitches-LICENSE.md"
+  },
+  "@xterm/addon-serialize@0.14.0": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/xtermjs/xterm.js/f447274f430fd22513f6adbf9862d19524471c04/LICENSE",
+    "file": "third-party-licenses/xterm-LICENSE"
+  },
+  "eastasianwidth@0.2.0": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/komagata/eastasianwidth/1cae8a1e507ad6bd5da2e9a01c0f6c90131699bf/MIT-LICENSE.txt",
+    "file": "third-party-licenses/eastasianwidth-MIT-LICENSE.txt"
   },
   "gsap@3.15.0": {
     "license": "Standard 'no charge' license: https://gsap.com/standard-license.",
     "source": "https://gsap.com/standard-license",
     "file": "third-party-licenses/gsap-standard-license.txt"
   },
-  "@rolldown/binding-linux-x64-gnu@1.2.13": {
-    "license": "MIT",
-    "source": "https://raw.githubusercontent.com/rolldown/rolldown/f7de35f45bcd4cb8e4b6d8d11e74fbfb20b03127/LICENSE",
-    "file": "third-party-licenses/rolldown-LICENSE"
-  },
   "imurmurhash@0.1.4": {
     "license": "MIT",
     "source": "https://raw.githubusercontent.com/jensyt/imurmurhash-js/9f40361c7e2835a9b7b8eaa1cbab2a9f94ee22a2/LICENSE",
     "file": "third-party-licenses/imurmurhash-LICENSE"
+  },
+  "lazy-val@1.0.5": {
+    "license": "MIT",
+    "source": "SPDX MIT terms: https://spdx.org/licenses/MIT.txt; attribution and version from the npm archive https://registry.npmjs.org/lazy-val/-/lazy-val-1.0.5.tgz and matching source snapshot https://github.com/develar/lazy-val/tree/b69ad4119f1b19bdab13c61ee2fcc88d46b89071",
+    "file": "third-party-licenses/lazy-val-MIT.txt"
+  },
+  "react-arborist@3.16.0": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/jameskerr/react-arborist/d74c4ec696ba98c1a4e981075f6d60cdff3e290b/LICENSE",
+    "file": "third-party-licenses/react-arborist-LICENSE"
+  },
+  "react-remove-scroll-bar@2.3.8": {
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/theKashey/react-remove-scroll-bar/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE",
+    "file": "third-party-licenses/react-remove-scroll-bar-LICENSE"
   },
   "rehype-katex@7.0.1": {
     "license": "MIT",
@@ -44,24 +84,19 @@
     "source": "https://raw.githubusercontent.com/remarkjs/remark-math/d5d0660b150810a535bbb07eac6cc96a4510aa24/license",
     "file": "third-party-licenses/remark-math-license"
   },
-  "eastasianwidth@0.2.0": {
-    "license": "MIT",
-    "source": "https://raw.githubusercontent.com/komagata/eastasianwidth/1cae8a1e507ad6bd5da2e9a01c0f6c90131699bf/MIT-LICENSE.txt",
-    "file": "third-party-licenses/eastasianwidth-MIT-LICENSE.txt"
-  },
-  "react-remove-scroll-bar@2.3.8": {
-    "license": "MIT",
-    "source": "https://raw.githubusercontent.com/theKashey/react-remove-scroll-bar/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE",
-    "file": "third-party-licenses/react-remove-scroll-bar-LICENSE"
-  },
   "tr46@0.0.3": {
     "license": "MIT",
     "source": "https://raw.githubusercontent.com/Sebmaster/tr46.js/bd303c13dc7ebc716c232f03cb80c79071e7a7f7/LICENSE.md",
     "file": "third-party-licenses/tr46-LICENSE.md"
   },
-  "@xterm/addon-serialize@0.14.0": {
+  "unicode-animations@1.0.3": {
     "license": "MIT",
-    "source": "https://raw.githubusercontent.com/xtermjs/xterm.js/f447274f430fd22513f6adbf9862d19524471c04/LICENSE",
-    "file": "third-party-licenses/xterm-LICENSE"
+    "source": "SPDX MIT terms: https://spdx.org/licenses/MIT.txt; attribution and version from the 1.0.3 repository source snapshot https://github.com/gunnargray-dev/unicode-animations/tree/8d2c988f7986c88e7ce8d8086b2444202a868617 and npm archive https://registry.npmjs.org/unicode-animations/-/unicode-animations-1.0.3.tgz",
+    "file": "third-party-licenses/unicode-animations-MIT.txt"
+  },
+  "use-composed-ref@1.4.0": {
+    "license": "MIT",
+    "source": "SPDX MIT terms: https://spdx.org/licenses/MIT.txt; attribution from the exact v1.4.0 source tag https://github.com/Andarist/use-composed-ref/tree/ea2c9d969f2f90a349f4c99338b806423824cea2; npm archive https://registry.npmjs.org/use-composed-ref/-/use-composed-ref-1.4.0.tgz",
+    "file": "third-party-licenses/use-composed-ref-MIT.txt"
   }
 }
