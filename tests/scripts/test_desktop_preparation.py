@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import replace
 from pathlib import Path
 import subprocess
 import sys
@@ -63,6 +64,56 @@ def test_stable_build_accepts_the_admitted_commit_before_the_final_tag_exists(tm
         BuildRequest.create(
             source, tag="v1.2.4", commit=None, release_commit=commit, variant="bundled",
             work=tmp_path / "wrong-work", cache=tmp_path / "wrong-cache", bundle_env={},
+        )
+
+
+def test_stable_jarvis_build_accepts_only_a_versioned_linux_release(tmp_path, monkeypatch):
+    from scripts.bundles.desktop_inputs import identity_environment
+    from scripts.bundles.desktop_prepare import BuildRequest, embeds_runtime_payload, validate_variant_target
+
+    source, commit = _project(tmp_path)
+    subprocess.run([
+        "git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test",
+        "-c", "tag.gpgSign=false", "tag", "-a", "rc.1-v1.2.4", "-m", "claim",
+    ], cwd=source, check=True, env={**os.environ, "GIT_COMMITTER_DATE": "2026-08-29T01:02:03Z"})
+    monkeypatch.setenv("RELEASE_CLAIM_TAG", "rc.1-v1.2.4")
+    monkeypatch.setenv("RELEASE_CLAIM_OBJECT", subprocess.check_output(
+        ["git", "rev-parse", "rc.1-v1.2.4"], cwd=source, text=True,
+    ).strip())
+
+    request = BuildRequest.create(
+        source, tag="v1.2.4", commit=None, release_commit=commit, variant="jarvis",
+        work=tmp_path / "work", cache=tmp_path / "cache", bundle_env={},
+    )
+    env = identity_environment(request, "jarvis", {})
+
+    assert request.version == "1.2.4"
+    assert env["HERMES_DESKTOP_VARIANT"] == "jarvis"
+    assert env["HERMES_PAYLOAD_VERSION"] == "1.2.4"
+    assert env["HERMES_PAYLOAD_TAG"] == "v1.2.4"
+    assert "HERMES_BUILD_COMMIT" not in env
+    assert request.target.startswith("linux-")
+    assert not embeds_runtime_payload(request.variant)
+    assert embeds_runtime_payload("bundled")
+
+    with pytest.raises(ValueError, match="Linux target"):
+        validate_variant_target("jarvis", "darwin-arm64")
+    validate_variant_target("bundled", "darwin-arm64")
+
+
+def test_jarvis_release_builder_rejects_commit_and_canary_builds(tmp_path):
+    from scripts.bundles.desktop_prepare import BuildRequest
+
+    source, commit = _project(tmp_path)
+    with pytest.raises(ValueError, match="stable release tag"):
+        BuildRequest.create(
+            source, tag=None, commit=commit, variant="jarvis",
+            work=tmp_path / "commit-work", cache=tmp_path / "commit-cache", bundle_env={},
+        )
+    with pytest.raises(ValueError, match="stable release tag"):
+        BuildRequest.create(
+            source, tag="v1.2.4+canary.20260911T120000Z", commit=None, variant="jarvis",
+            release_commit=commit, work=tmp_path / "canary-work", cache=tmp_path / "canary-cache", bundle_env={},
         )
 
 
@@ -137,6 +188,8 @@ def test_prepared_input_roundtrip_rejects_mutation_and_foreign_source(tmp_path):
     assert restored.request.commit == commit
     assert restored.request.version == "1.2.3"
     assert "environment" not in json.loads(path.read_text())
+    with pytest.raises(ValueError, match="runtime payload does not match"):
+        replace(restored, payload=native).validate()
     icon_library.unlink()
     with pytest.raises(ValueError, match="changed|stale|missing"):
         restored.validate()

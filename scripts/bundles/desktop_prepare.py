@@ -20,6 +20,29 @@ if str(ROOT) not in sys.path:
 
 from scripts.releases.versioning import parse_attempt_ref
 
+EMBEDDED_PAYLOAD_VARIANTS = {"bundled", "store"}
+
+
+def embeds_runtime_payload(variant: str) -> bool:
+    return variant in EMBEDDED_PAYLOAD_VARIANTS
+
+
+def validate_variant_target(variant: str, target: str) -> None:
+    if variant == "jarvis" and not target.startswith("linux-"):
+        raise ValueError("Jarvis release builds require a Linux target")
+
+
+def validate_build_variant(variant: str, tag: str | None, commit: str | None, target: str) -> None:
+    from scripts.termux.deb_version import channel_for_tag
+
+    if variant not in {"bundled", "store", "light", "jarvis"}:
+        raise ValueError("invalid desktop variant")
+    if variant == "store" and (commit or not tag or channel_for_tag(tag) != "stable"):
+        raise ValueError("Store packaging requires a stable release tag")
+    if variant == "jarvis" and (not tag or channel_for_tag(tag) != "stable"):
+        raise ValueError("Jarvis release builds require a stable release tag")
+    validate_variant_target(variant, target)
+
 
 def git(source: Path, *args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=source, text=True, encoding="utf-8").rstrip("\r\n")
@@ -108,7 +131,6 @@ class BuildRequest:
         from scripts.bundles.desktop import release_version
         from scripts.releases.bundle_env import validate
         from scripts.releases.commit_build import require_commit, version_at
-        from scripts.termux.deb_version import channel_for_tag
 
         if channel_request is not None:
             channel_request = validate_channel_request(channel_request)
@@ -120,10 +142,8 @@ class BuildRequest:
                 raise ValueError("bundle defaults conflict with channel request")
             commit = channel_request["commit"]
             bundle_env = channel_request["bundleEnv"]
-        if variant == "store" and (commit or not tag or channel_for_tag(tag) != "stable"):
-            raise ValueError("Store packaging requires a stable release tag")
-        if variant not in {"bundled", "store", "light"}:
-            raise ValueError("invalid desktop variant")
+        target = current_target()
+        validate_build_variant(variant, tag, commit, target)
         if bool(tag) == bool(commit):
             raise ValueError("exactly one of --tag or --commit is required")
         bundle_env = validate(bundle_env)
@@ -172,7 +192,7 @@ class BuildRequest:
             if version != channel_request["sourceVersion"]:
                 raise ValueError("channel sourceVersion differs from checkout project version")
             version = channel_request["version"]
-        return cls(source, work, cache, commit, tag, version, variant, current_target(), bundle_env,
+        return cls(source, work, cache, commit, tag, version, variant, target, bundle_env,
                    channel_request, release_epoch)
 
     def data(self) -> dict:
@@ -251,6 +271,8 @@ class PreparedDesktop:
         self.request.validate_channel()
         if (self.request_digest is not None or self.request.channel_request is not None) and self.request_digest != self.request.identity_digest():
             raise ValueError("preparation request identity changed; prepare again")
+        if (self.payload is not None) != embeds_runtime_payload(self.request.variant):
+            raise ValueError("prepared runtime payload does not match the desktop variant")
         require_source(self.request.source, self.request.commit)
         if self.request.target != current_target():
             raise ValueError("preparation target differs from this host")
@@ -364,7 +386,7 @@ def prepare_in_worker(request: BuildRequest) -> Path:
          "--out", str(request.work / "native-probe"), "--native-toolchain", native_toolchain],
         cwd=request.source, env=env)
     payload = None
-    if request.variant != "light":
+    if embeds_runtime_payload(request.variant):
         payload = prepare_native(out=request.source / "apps/desktop/build/agent-payload", ref=request.commit,
                                  source=request.source, cache=Path(env["UV_CACHE_DIR"]),
                                  tools=request.cache / "tools", env=env)

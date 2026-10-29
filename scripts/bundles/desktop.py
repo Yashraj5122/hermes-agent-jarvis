@@ -83,6 +83,7 @@ def build_prepared(path: Path, builder_args: list[str], variant: str | None = No
 
 def _build_prepared(prepared, builder_args: list[str], variant: str | None) -> None:
     prepared.validate()
+    from scripts.bundles.desktop_prepare import embeds_runtime_payload, require_source
     from scripts.bundles.desktop_inputs import build_environment, packaging_environment, select_variant, validate_builder_identity
     from scripts.bundles.native import finish_native
 
@@ -112,11 +113,11 @@ def _build_prepared(prepared, builder_args: list[str], variant: str | None) -> N
         run([node, "scripts/build/tui.mjs", "--source", str(repo), "--out", str(products / "tui")], cwd=repo, env=env)
         run([node, "scripts/build/web.mjs", "--source", str(repo), "--icons", str(products / "icons"),
              "--out", str(products / "web")], cwd=repo, env=env)
-        if prepared.payload is None:
+        if prepared.payload is not None:
+            if finish_native(prepared.payload, {"tui": products / "tui", "web": products / "web"}):
+                raise RuntimeError("prepared payload assembly failed")
+        elif embeds_runtime_payload(request.variant):
             raise ValueError("payload dependencies were not prepared")
-        if finish_native(prepared.payload, {"tui": products / "tui", "web": products / "web"}):
-            raise RuntimeError("prepared payload assembly failed")
-    from scripts.bundles.desktop_prepare import require_source
     require_source(repo, request.commit)
     # The admitted checkout stays clean across the whole build: packaging reads
     # its artwork from the workspace, so the render lives there only while
@@ -147,7 +148,7 @@ def main() -> None:
                              "version comes from the target pyproject, no tag is referenced")
     parser.add_argument("--release-commit", help="Admitted commit for a stable tag not created until green")
     parser.add_argument("--channel-request", type=Path, help="Immutable admitted channel request JSON")
-    parser.add_argument("--variant", choices=["bundled", "store", "light"])
+    parser.add_argument("--variant", choices=["bundled", "store", "light", "jarvis"])
     parser.add_argument("--repo", type=Path, default=ROOT)
     parser.add_argument("--work", type=Path)
     parser.add_argument("--cache", type=Path)

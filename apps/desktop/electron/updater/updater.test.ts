@@ -21,9 +21,15 @@ describe('build stamp → update ownership', () => {
   }
 
   it('Jarvis keeps the local bootstrap contract with external package updates', () => {
-    const stamp = buildStampPayload(provenance, { HERMES_DESKTOP_VARIANT: 'jarvis' }, 'linux')
+    const stamp = buildStampPayload(provenance, {
+      HERMES_DESKTOP_VARIANT: 'jarvis',
+      HERMES_PAYLOAD_TAG: 'v1.2.4',
+      HERMES_PAYLOAD_VERSION: '1.2.4'
+    }, 'linux')
     expect(stamp.payload).toBe('bootstrap')
     expect(stamp.desktopVariant).toBe('jarvis')
+    expect(stamp.displayVersion).toBe('1.2.4')
+    expect(stamp.tag).toBe('v1.2.4')
     expect(stamp.updateMechanism).toBe('external')
     expect(resolveUpdaterMechanism({ platform: 'linux', updateMechanism: stamp.updateMechanism })).toBe('external')
   })
