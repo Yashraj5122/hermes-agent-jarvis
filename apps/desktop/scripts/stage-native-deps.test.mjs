@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { test } from 'vitest'
+import * as stageNativeDeps from '../scripts/stage-native-deps.mjs'
 
 import { buildHudModifierMonitor } from '../scripts/build-hud-modifier-monitor.mjs'
 import {
@@ -64,6 +65,40 @@ function makeFakeUnixTerminal(srcRoot) {
 }
 
 // ─── optional native helper tests ───────────────────────────────────
+
+test('node-pty keeps termios speed calls compatible with glibc before 2.42', () => {
+  const source = [
+    '#include <pty.h>',
+    'void configure(struct termios *term) {',
+    '  cfsetispeed(term, B38400);',
+    '  cfsetospeed(term, B38400);',
+    '}'
+  ].join('\n')
+
+  const patched = stageNativeDeps.patchNodePtyForGlibc242(source, 'x64')
+
+  assert.match(patched, /cfsetispeed@GLIBC_2\.2\.5/)
+  assert.match(patched, /cfsetospeed@GLIBC_2\.2\.5/)
+  assert.match(patched, /nodePtyCfsetispeedLegacy\(term, __B38400\)/)
+  assert.match(patched, /nodePtyCfsetospeedLegacy\(term, __B38400\)/)
+  assert.doesNotMatch(patched, /cfset(?:i|o)speed\(term, B38400\)/)
+  assert.equal(stageNativeDeps.patchNodePtyForGlibc242(patched, 'x64'), patched)
+})
+
+test('node-pty uses the correct legacy symbol version for Linux arm64', () => {
+  const source = [
+    '#include <pty.h>',
+    'void configure(struct termios *term) {',
+    '  cfsetispeed(term, B38400);',
+    '  cfsetospeed(term, B38400);',
+    '}'
+  ].join('\n')
+
+  const patched = stageNativeDeps.patchNodePtyForGlibc242(source, 'arm64')
+
+  assert.match(patched, /cfsetispeed@GLIBC_2\.17/)
+  assert.match(patched, /cfsetospeed@GLIBC_2\.17/)
+})
 
 test('a missing Linux HUD toolchain leaves no empty package directories', () => {
   const tmp = fs.mkdtempSync(join(os.tmpdir(), 'hermes-hud-'))

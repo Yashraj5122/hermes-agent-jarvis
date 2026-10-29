@@ -134,6 +134,46 @@ function resolveNodePtyRoot(appRoot = projectRoot) {
   return dirname(pkgJsonPath)
 }
 
+/** glibc 2.42 added default termios symbols that Ubuntu 24.04 cannot load. */
+export function patchNodePtyForGlibc242(source, arch) {
+  const version = { x64: '2.2.5', arm64: '2.17' }[arch]
+  if (!version) throw new Error(`[stage-native-deps] no legacy glibc termios ABI is defined for ${arch}`)
+
+  const shim = [
+    `__asm__(".symver nodePtyCfsetispeedLegacy,cfsetispeed@GLIBC_${version}");`,
+    `__asm__(".symver nodePtyCfsetospeedLegacy,cfsetospeed@GLIBC_${version}");`,
+    'extern "C" int nodePtyCfsetispeedLegacy(struct termios *, speed_t);',
+    'extern "C" int nodePtyCfsetospeedLegacy(struct termios *, speed_t);'
+  ].join('\n')
+  if (source.includes('nodePtyCfsetispeedLegacy')) return source
+
+  const include = '#include <pty.h>'
+  const ispeed = 'cfsetispeed(term, B38400);'
+  const ospeed = 'cfsetospeed(term, B38400);'
+  if (!source.includes(include) || source.split(ispeed).length !== 2 || source.split(ospeed).length !== 2) {
+    throw new Error('[stage-native-deps] node-pty termios source changed; re-verify the glibc compatibility patch')
+  }
+
+  return source
+    .replace(include, `${include}\n${shim}`)
+    .replace(ispeed, 'nodePtyCfsetispeedLegacy(term, __B38400);')
+    .replace(ospeed, 'nodePtyCfsetospeedLegacy(term, __B38400);')
+}
+
+function glibcNeedsTermiosCompatibility(version, arch) {
+  if (!version) return false
+  const [major, minor] = version.split('.').map(Number)
+  if (!Number.isInteger(major) || !Number.isInteger(minor)) return false
+  if (major < 2 || (major === 2 && minor < 42)) return false
+  if (major > 2 || minor >= 42) {
+    if (!['x64', 'arm64'].includes(arch)) {
+      throw new Error(`[stage-native-deps] glibc ${version} termios compatibility is not defined for ${arch}`)
+    }
+    return true
+  }
+  return false
+}
+
 function copyGlobByExt(srcDir, destDir, extensions) {
   if (!existsSync(srcDir)) return
   mkdirSync(destDir, { recursive: true })
@@ -309,6 +349,17 @@ function validateStagedBinaries(destRoot, targetPlatform) {
  */
 export function stageNodePtyInto(srcRoot, destRoot, { platform = process.platform, arch = process.arch, appRoot = projectRoot } = {}) {
   const hostMatch = platform === process.platform && arch === process.arch
+  const runtimeGlibc = process.report?.getReport?.().header?.glibcVersionRuntime
+  const needsLegacyTermios =
+    platform === 'linux' &&
+    hostMatch &&
+    glibcNeedsTermiosCompatibility(runtimeGlibc, arch) &&
+    existsSync(join(srcRoot, 'src/unix/pty.cc'))
+
+  if (needsLegacyTermios) {
+    const ptySource = join(srcRoot, 'src/unix/pty.cc')
+    writeFileSync(ptySource, patchNodePtyForGlibc242(readFileSync(ptySource, 'utf8'), arch))
+  }
 
   removeDirSync(destRoot)
   mkdirSync(destRoot, { recursive: true })
@@ -326,7 +377,7 @@ export function stageNodePtyInto(srcRoot, destRoot, { platform = process.platfor
   // Explicit extensions only, to skip the ~25MB of Windows .pdb symbols
   // prebuild-install bundles alongside the .node/.dll.
   const prebuildDir = join(srcRoot, 'prebuilds', `${platform}-${arch}`)
-  if (existsSync(prebuildDir)) {
+  if (existsSync(prebuildDir) && !needsLegacyTermios) {
     const destPrebuild = join(destRoot, 'prebuilds', `${platform}-${arch}`)
     mkdirSync(destPrebuild, { recursive: true })
     for (const entry of readdirSync(prebuildDir, { withFileTypes: true })) {
@@ -353,7 +404,7 @@ export function stageNodePtyInto(srcRoot, destRoot, { platform = process.platfor
   // and architecture. Staging a host binary for a different target (e.g.
   // a macOS Mach-O .node staged for a linux-arm64 target) ships a broken
   // app that crashes the first time a terminal is spawned.
-  if (hostMatch) {
+  if (hostMatch && !needsLegacyTermios) {
     const buildReleaseDir = join(srcRoot, 'build/Release')
     copyBuildRelease(buildReleaseDir, join(destRoot, 'build/Release'))
   }
