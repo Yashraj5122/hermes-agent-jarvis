@@ -26,6 +26,7 @@ describe('build stamp → update ownership', () => {
       HERMES_PAYLOAD_TAG: 'v1.2.4',
       HERMES_PAYLOAD_VERSION: '1.2.4'
     }, 'linux')
+
     expect(stamp.payload).toBe('bootstrap')
     expect(stamp.desktopVariant).toBe('jarvis')
     expect(stamp.displayVersion).toBe('1.2.4')
