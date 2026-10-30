@@ -154,6 +154,13 @@ export function runElectronBuilder(args, { spawn = spawnSync } = {}) {
     preloads.push('--import', path.join(import.meta.dirname, 'patch-electron-builder-mac-binary.mjs'))
     preloads.push('--require', path.join(import.meta.dirname, 'dmgbuild-diagnostics.cjs'))
   }
+  if (
+    process.platform === 'linux' &&
+    process.env.HERMES_DESKTOP_VARIANT === 'jarvis' &&
+    inputs.formats.includes('AppImage')
+  ) {
+    preloads.push('--import', path.join(import.meta.dirname, 'patch-electron-builder-appimage-sandbox.mjs'))
+  }
   /** @type {NodeJS.ProcessEnv} */
   const env = { ...process.env, NODE_OPTIONS: builderNodeOptions(), HERMES_PREPARED_PACKAGING: manifest,
     HERMES_PREPARED_NATIVE_DEPS: nativeDeps, HERMES_PREPARED_TARGET: inputs.target }
