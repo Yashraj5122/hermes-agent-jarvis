@@ -5,10 +5,15 @@ import {
   displayModelName,
   formatModelPillLabel,
   modelDisplayParts,
-  modelVariantTag
+  modelVariantTag,
+  providerDisplayName
 } from './model-status-label'
 
 describe('model-status-label', () => {
+  it('labels Codex OAuth without claiming a ChatGPT subscription', () => {
+    expect(providerDisplayName('openai-codex')).toBe('OpenAI Codex (OAuth)')
+  })
+
   it('strips trailing date-pin snapshots and dots hyphenated Anthropic versions', () => {
     expect(displayModelName('claude-opus-4-5-20251101')).toBe('Opus 4.5')
     expect(displayModelName('anthropic/claude-haiku-4-5-20251001')).toBe('Haiku 4.5')
